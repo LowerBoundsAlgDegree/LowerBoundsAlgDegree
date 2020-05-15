@@ -1,0 +1,49 @@
+This repository contains the code used to obtain our results in the paper "Lower Bounds on the Algebraic Degree of Block Ciphers".
+
+This tool is rather generic and can (in theory) handle any AES-like block ciphers.
+The current SageMath code used to generate the MILP model however can only manage up to 4-bit Sboxes, our results on AES were obtained with a different implementation.
+
+We refer the reader to the paper for details on what is meant by "AES-like" ciphers.
+In short, the round function can be either built as
+SB -> SR -> ARK -> MC or
+SB -> SR -> MC -> ARK,
+where :
+- SB is an Sbox layer, applied on all nibbles on the state
+- SR is a nibble-wise permutation
+- ARK is the key addition on all nibbles of the state
+- MC is a MixColumns operation on each column of the state
+
+These are the only two possible round function because :
+- A round function SB -> ARK -> SR -> MC is equivalent to SB -> SR -> ARK -> MC by reordering the bits of the key according to SR.
+- A round function ARK -> SB -> SR -> MC is equivalent (for our purpose) to SB -> SR -> MC -> ARK, as if we directly add a key to the plaintext, the parity set of this key is necessarily 0 if the parity set of the plaintext is of weight blockSize - 1 (which is the main application).
+
+Information about the block cipher is handled by a "BCData" object, containing e.g. the Sbox, MC matrix, SR permutation etc.
+For the block ciphers we studied in the paper, the "configBC.*" files contains the definition of such an object for each cipher.
+
+The "main.cpp" file contains examples and wrapper functions to use this tool.
+Especially, to compute the number of trails for a block cipher, given the input, output and key parity set, one should take a look at the "computeNumberTrails" function in "main.cpp".
+We refer the reader to the other functions in the "main.cpp" to know which function to use for a given purpose.
+
+To fine tune some parameters of the search algorithms such as time limits, solution limits etc., 
+macros are used in the code at the beginning of the "BCData.cpp" and "customCallback.cpp" files.
+It is a bit dirty but easier to change and than handling a ton of parameters everywhere.
+Our results were obtained with the current values unless specified otherwise in the code.
+
+An installation of the MILP optimizer Gurobi is necessary (https://www.gurobi.com/)
+The GUROBI_HOME environment variable should be set according to the Gurobi documentation.
+If needed, edit the makefile to adjust to the correct paths/version of Gurobi, especially the -lgurobi_g++5.2 and -lgurobi81 flags
+
+This implementation was tested using :
+
+g++ version 9.3.0 (Arch Linux 9.3.0-1)
+SageMath version 9.0, Release Date: 2020-01-01
+Gurobi 9.0.0
+
+and
+
+g++ (Ubuntu 9.2.1-17ubuntu1~18.04.1) 9.2.1 20191102
+SageMath version 8.1, Release Date: 2017-12-07
+Gurobi 8.1.1
+
+No guarantees are given when using different versions, but we do not expect any issue.
+The only compiler-dependent instruction should be __builtin_popcountll
