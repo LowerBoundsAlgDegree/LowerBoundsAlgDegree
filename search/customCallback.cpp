@@ -28,7 +28,8 @@ callbackSearchKeyPattern::callbackSearchKeyPattern(BCData const & xBCD,
 						vector<vector<GRBVar>> const & xallKeyVar,
                         vector<vector<vector<GRBVar>>> const & xinSSBVar,
                         vector<vector<vector<GRBVar>>> const & xoutSSBVar,
-                        vector<vector<vector<GRBVar>>> const & xkeySSBVar) :
+                        vector<vector<vector<GRBVar>>> const & xkeySSBVar,
+                        bool const xstartAfterSSB) :
 	BCD(xBCD),
 	nbRounds(xnbRounds),
 	inputVar(xinputVar),
@@ -38,7 +39,8 @@ callbackSearchKeyPattern::callbackSearchKeyPattern(BCData const & xBCD,
 	outSSBVar(xoutSSBVar),
 	keySSBVar(xkeySSBVar),
 	ctrsolutions(0),
-	allSolutions()
+	allSolutions(),
+	startAfterSSB(xstartAfterSSB)
 {}
 
 void callbackSearchKeyPattern::callback(){
@@ -107,7 +109,13 @@ void callbackSearchKeyPattern::callback(){
         			auto & valInSSB_r_i = valInSSB_r[i];
         			auto & valKeySSB_r_i = valKeySSB_r[i];
         			auto & valOutSSB_r_i = valOutSSB_r[i];
-        			auto nbTrail = BCD.countSSBTrail(valInSSB_r_i, valKeySSB_r_i, valOutSSB_r_i);
+        			uint64_t nbTrail;
+        			if(r == nbRounds-2 && BCD.dedicatedPRESENTlastLayer && startAfterSSB){
+        				//Dedicated SSB for the last SSB if we modified the last layer for Present
+        				nbTrail = BCD.countSSBTrail_dedicatedPresent(valInSSB_r_i, valKeySSB_r_i, valOutSSB_r_i);
+        			}
+        			else
+        				nbTrail = BCD.countSSBTrail(valInSSB_r_i, valKeySSB_r_i, valOutSSB_r_i);
         			if(nbTrail%2 == 0){ //Even number of trails in this SSB, remove it
         				oddSSB = false;
         				auto & inSSBVar_r_i = inSSBVar[r][i];
@@ -321,7 +329,13 @@ void callbackDynamic::callback(){
         			auto & valInSSB_r_i = valInSSB_r[i];
         			auto & valKeySSB_r_i = valKeySSB_r[i];
         			auto & valOutSSB_r_i = valOutSSB_r[i];
-        			auto nbTrail = BCD.countSSBTrail(valInSSB_r_i, valKeySSB_r_i, valOutSSB_r_i);
+        			uint64_t nbTrail;
+        			if(r == inSSBVar.size()-1 && BCD.dedicatedPRESENTlastLayer){
+        				//Dedicated SSB for the last SSB if we modified the last layer for Present
+        				nbTrail = BCD.countSSBTrail_dedicatedPresent(valInSSB_r_i, valKeySSB_r_i, valOutSSB_r_i);
+        			}
+        			else
+        				nbTrail = BCD.countSSBTrail(valInSSB_r_i, valKeySSB_r_i, valOutSSB_r_i);
         			// cout << nbTrail << " ";
         			//Check if it exceeds the threshold or even
         			if(nbTrail > THRESHOLD_NBSOL_SSB_DYNAMIC || nbTrail%2 == 0){

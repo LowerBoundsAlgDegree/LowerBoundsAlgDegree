@@ -82,14 +82,14 @@ def genBaseModelSARKMCS(name,S,M,sboxSize,blockSize,linAsSbox):
 
 	return (m,u,x,k,y,z,v)
 
-def genBaseModelSMCARKS(name,S,M,sboxSize,blockSize,linAsSbox):
+def genBaseModelSMCARKS(name,S,M,sboxSize,blockSize,linAsSbox,dedicatedPRESENTlastLayer):
 	M_ncols = M.ncols()
 	nbSbox = blockSize//sboxSize
 	#Precompute inequalities for the sbox
-	(BPR,anf) = anfSbox(S)
-	T = divPropANFBinTable(anf)
+	(BPR,anfS) = anfSbox(S)
+	T = divPropANFBinTable(anfS)
 	ineqSbox = sboxReducedInequalities(T)
-	sboxSize = anf[0].parent().n_variables() #size of the Sbox in bits
+	sboxSize = anfS[0].parent().n_variables() #size of the Sbox in bits
 
 	if linAsSbox:
 		#Precompute inequalities for MC
@@ -149,17 +149,28 @@ def genBaseModelSMCARKS(name,S,M,sboxSize,blockSize,linAsSbox):
 	for i in range(blockSize):
 		m.addConstr(y[i] + k[i] == z[i])
 
-	#Sbox constraints
-	for j in range(nbSbox):
-		inputvar  = [z[sboxSize*j+i] for i in range(sboxSize)]
-		outputvar = [v[sboxSize*j+i] for i in range(sboxSize)]
-		addSboxConstr(m,ineqSbox,inputvar,outputvar)
+	if not dedicatedPRESENTlastLayer:
+		#Sbox constraints
+		for j in range(nbSbox):
+			inputvar  = [z[sboxSize*j+i] for i in range(sboxSize)]
+			outputvar = [v[sboxSize*j+i] for i in range(sboxSize)]
+			addSboxConstr(m,ineqSbox,inputvar,outputvar)
+	else:
+		#dedicated last layer (y0,y1+y3,y2,y3+y2)
+		anfS[1] = anfS[1] + anfS[3]
+		anfS[3] = anfS[2] + anfS[3]
+		T = divPropANFBinTable(anfS)
+		ineqSboxDecicated = sboxReducedInequalities(T)
+		for j in range(nbSbox):
+			inputvar  = [z[sboxSize*j+i] for i in range(sboxSize)]
+			outputvar = [v[sboxSize*j+i] for i in range(sboxSize)]
+			addSboxConstr(m,ineqSboxDecicated,inputvar,outputvar)
 
 	return (m,u,x,k,y,z,v)
 
 load("SSBModel_parameters.sage")
 if keyAfterMC:
-	(m,u,x,k,y,z,v) = genBaseModelSMCARKS(name,S,M,sboxSize,blockSize,linAsSbox)
+	(m,u,x,k,y,z,v) = genBaseModelSMCARKS(name,S,M,sboxSize,blockSize,linAsSbox,dedicatedPRESENTlastLayer)
 else:
 	(m,u,x,k,y,z,v) = genBaseModelSARKMCS(name,S,M,sboxSize,blockSize,linAsSbox)
 m.write(name+".mps")

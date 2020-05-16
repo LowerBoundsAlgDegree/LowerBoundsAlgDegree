@@ -70,7 +70,8 @@ void generateSSBModel(std::string const & name,
 					  uint const sboxSize,
 					  uint const SSBSize,
 					  bool linAsSbox,
-					  bool keyAfterMC);
+					  bool keyAfterMC,
+					  bool dedicatedPRESENTlastLayer = false);
 /*
 	Generate a model for a Super sbox using genSSBModel.sage
 	- #name is the name of the model, the model file will be called #name_SSB.mps

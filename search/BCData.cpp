@@ -11,7 +11,7 @@
 #define DYNAMIC_STEP1_MIPFOCUS 1				/*Hint for Gurobi to focus more on finding solution than proving optimality. Seems to improve the speed, see the Gurobi doc for more details*/
 
 #define MAX_NUMBER_SOLCOUNT_FULLCIPHER 100000	/*Solution limit when counting the total number of trails over the whole cipher in countTrailsFullCipher*/
-#define TIME_LIMIT_COUNTTRAILS_FULLCIPER 240	/*Time limit (in seconds) when counting the total number of trails over the whole cipher in countTrailsFullCipher. Set to GRB_INFINITY for unlimited time*/
+#define TIME_LIMIT_COUNTTRAILS_FULLCIPER 60	/*Time limit (in seconds) when counting the total number of trails over the whole cipher in countTrailsFullCipher. Set to GRB_INFINITY for unlimited time*/
 
 /*The values of the last two limits are the one used to prove the min-degree.
 For the algebraic degree for PRESENT, higher limits were used but were not saved.
@@ -129,6 +129,49 @@ uint64_t BCData::countSSBTrail(vector<uint8_t> & u,
 	return m.get(GRB_IntAttr_SolCount);
 }
 
+uint64_t BCData::countSSBTrail_dedicatedPresent(vector<uint8_t> & u,
+							   vector<uint8_t> & k,
+							   vector<uint8_t> & v) const{
+/*
+	Return the number of trails over the SSB with
+	#u the input division property
+	#k the key division property
+	#v the output division property
+	For u,k and v, the division property is encoded over an uint32_t
+	bit i is obtained with u & (1 << i)
+	The number of relevant bits in the uint32_t is given by #this.SSBSize
+*/
+
+	//Read the model
+	GRBModel m(gurobiEnv, name+"_SSB_dedicated.mps");
+	m.set(GRB_IntParam_Threads,1);
+
+	//Get u,k,v variables
+	vector<GRBVar> uvar(SSBSize);
+	vector<GRBVar> kvar(SSBSize);
+	vector<GRBVar> vvar(SSBSize);
+	for(uint i = 0; i < SSBSize; i++){
+		uvar[i] = m.getVarByName("u"+to_string(i));
+		kvar[i] = m.getVarByName("k"+to_string(i));
+		vvar[i] = m.getVarByName("v"+to_string(i));
+	}
+
+	//Set the value of u,k,v
+	for(uint i = 0; i < SSBSize; i++){
+		m.addConstr(uvar[i] == u[i]);
+		m.addConstr(kvar[i] == k[i]);
+		m.addConstr(vvar[i] == v[i]);
+	}
+
+	//Setup params to enumerate solutions
+	m.set(GRB_IntParam_PoolSearchMode, 2);
+	m.set(GRB_IntParam_PoolSolutions, 2000000000); //maximum number of solution allowed by Gurobi
+
+	m.optimize();
+
+	return m.get(GRB_IntAttr_SolCount);
+}
+
 pair<uint64_t,bool> BCData::countTrailsFullCipher(vector<uint8_t> const & input,
 							   vector<uint8_t> const & output, 
 							   vector<vector<uint8_t>> const & keyval){
@@ -150,7 +193,7 @@ pair<uint64_t,bool> BCData::countTrailsFullCipher(vector<uint8_t> const & input,
 	vector<GRBVar> inputVar(blockSize);
 	vector<GRBVar> outputVar(blockSize);
 	//input vars are x_0_i
-	//output vars are x_rMax_i
+	//output vars are y_rMax-1_i
 	for(uint i = 0; i < blockSize; i++){
 		inputVar[i] = m.getVarByName("x_0_"+to_string(i));
 		outputVar[i] = m.getVarByName("y_"+to_string(rMax_minus_1)+"_"+to_string(i));
@@ -246,6 +289,7 @@ BCData::searchKeyPattern(string const & modelFile,
 	- #input is the division property at the input
 	- #output is the division property at the output
 	- #startAfterSSB indicates whether the model start before or after the middle layer SSB 
+	  (this is a remnant from a previous implementation, here it should always be false but left for compatibility)
 	- #allTriedKeyPattern contains the previously tested key pattern (optional)
 	  these are removed from the solution pool to find new ones
 */
@@ -375,7 +419,7 @@ BCData::searchKeyPattern(string const & modelFile,
 
 	//Search for key patterns so that we have an odd number of trail from input to output
 	//Initialize Callback
-	callbackSearchKeyPattern cb(*this,nbRounds,inputVar,outputVar,allKeyVar,inSSBVar,outSSBVar,keySSBVar);
+	callbackSearchKeyPattern cb(*this,nbRounds,inputVar,outputVar,allKeyVar,inSSBVar,outSSBVar,keySSBVar,startAfterSSB);
 	m.setCallback(&cb);
 	m.set(GRB_IntParam_Threads,MAX_GRB_THREAD);
 	
@@ -439,9 +483,15 @@ void BCData::searchMinDegree(){
 		//knownPartialRows[r] = {i,k}, where #r is a partial row, #i and #k the corresponding input/key
 
 		vector<tuple<vector<uint8_t>, vector<vector<uint8_t>>, uint64_t>> goodInputKeyRow;
+		map<pair<vector<uint8_t>, vector<vector<uint8_t>>>, vector<bool>> rowWhenFirstFound;
 		while(M.nrows < lenBlock){
 			//Get an output bit to get an input/key
-			uint index = selectNextOutputBit(M);
+			uint index;
+			if(dedicatedPRESENTlastLayer)
+				index = selectNextOutputBit_dedicatedPresent(M);
+			else
+				index = selectNextOutputBit(M);
+
 			uint indexOutput = iblock*lenBlock + index;
 
 			//Get an input/key
@@ -504,6 +554,9 @@ void BCData::searchMinDegree(){
 				}
 				bool countedAll = true;
 				for(auto const & countedBiti : countedBit) countedAll &= countedBiti;
+
+				//Save the row before any reduction
+				rowWhenFirstFound[make_pair(input, keyval)] = countedBit;
 
 				if(!countedAll){
 					cout << "Partial row : ";
@@ -592,35 +645,36 @@ void BCData::searchMinDegree(){
 						M.print();
 						cout << endl;
 
-						ofstream outfile;
-						outfile.open (name+"_"+to_string(rMax)+"r_linIndep.txt", ios::out | ios::app);
+						// ofstream outfile;
+						// outfile.open (name+"_"+to_string(rMax)+"r_linIndep.txt", ios::out | ios::app);
 
-						outfile << "For block " << iblock << endl;
-						outfile << "Input  : "; 
-						for(auto const & xx : currentInput) outfile << int(xx);
-						outfile << endl;
+						// outfile << "For block " << iblock << endl;
+						// outfile << "Input  : "; 
+						// for(auto const & xx : currentInput) outfile << int(xx);
+						// outfile << endl;
 
-						outfile << "Keys   : " << endl;
-						for(auto const & keypattern : currentKeyVal){
-							for(auto const & xx : keypattern) outfile << int(xx); 
-							outfile << endl;
-						}
-						outfile << endl;
+						// outfile << "Keys   : " << endl;
+						// for(auto const & keypattern : currentKeyVal){
+						// 	for(auto const & xx : keypattern) outfile << int(xx); 
+						// 	outfile << endl;
+						// }
+						// outfile << endl;
 
-						outfile << "newRow : "; 
-						for(uint i = 0; i < lenBlock; i++){
-							if(currentNewRow & (uint64_t(1) << i)) outfile << 1;
-							else outfile << 0;
-						}
-						outfile << endl;
+						// outfile << "newRow : "; 
+						// for(uint i = 0; i < lenBlock; i++){
+						// 	if(currentNewRow & (uint64_t(1) << i)) outfile << 1;
+						// 	else outfile << 0;
+						// }
+						// outfile << endl;
 
-						outfile << "Current Matrix :" << endl;
-						for(uint i = 0; i < M.nrows; i++){
-							for(uint j = 0; j < M.ncols; j++)
-								outfile << M.get(i,j);
-							outfile << endl;
-						}
-						outfile << endl;
+						// outfile << "Current Matrix :" << endl;
+						// for(uint i = 0; i < M.nrows; i++){
+						// 	for(uint j = 0; j < M.ncols; j++)
+						// 		outfile << M.get(i,j);
+						// 	outfile << endl;
+						// }
+						// outfile << endl;
+						// outfile.close()
 
 						if(M.nrows > prev_nrows){
 							//We found a new linearly independent row
@@ -691,39 +745,40 @@ void BCData::searchMinDegree(){
 					M.print();
 					cout << endl;
 
-					ofstream outfile;
-					outfile.open (name+"_"+to_string(rMax)+"r_linIndep.txt", ios::out | ios::app);
+					// ofstream outfile;
+					// outfile.open (name+"_"+to_string(rMax)+"r_linIndep.txt", ios::out | ios::app);
 
-					outfile << "Found a new partial row" << endl;
-					outfile << "For block " << iblock << endl;
-					outfile << "Input  : "; 
-					for(auto const & xx : input) outfile << int(xx);
-					outfile << endl;
+					// outfile << "Found a new partial row" << endl;
+					// outfile << "For block " << iblock << endl;
+					// outfile << "Input  : "; 
+					// for(auto const & xx : input) outfile << int(xx);
+					// outfile << endl;
 
-					outfile << "Keys   : " << endl;
-					for(auto const & keypattern : keyval){
-						for(auto const & xx : keypattern) outfile << int(xx); 
-						outfile << endl;
-					}
-					outfile << endl;
+					// outfile << "Keys   : " << endl;
+					// for(auto const & keypattern : keyval){
+					// 	for(auto const & xx : keypattern) outfile << int(xx); 
+					// 	outfile << endl;
+					// }
+					// outfile << endl;
 
-					outfile << "newRow : "; 
-					for(uint i = 0; i < lenBlock; i++){
-						if(countedBit[i]){
-							if(newRow & (uint64_t(1) << i)) outfile << 1;
-							else outfile << 0;
-						}
-						else outfile << "*";
-					}
-					outfile << endl;
+					// outfile << "newRow : "; 
+					// for(uint i = 0; i < lenBlock; i++){
+					// 	if(countedBit[i]){
+					// 		if(newRow & (uint64_t(1) << i)) outfile << 1;
+					// 		else outfile << 0;
+					// 	}
+					// 	else outfile << "*";
+					// }
+					// outfile << endl;
 
-					outfile << "Current Matrix :" << endl;
-					for(uint i = 0; i < M.nrows; i++){
-						for(uint j = 0; j < M.ncols; j++)
-							outfile << M.get(i,j);
-						outfile << endl;
-					}
-					outfile << endl;
+					// outfile << "Current Matrix :" << endl;
+					// for(uint i = 0; i < M.nrows; i++){
+					// 	for(uint j = 0; j < M.ncols; j++)
+					// 		outfile << M.get(i,j);
+					// 	outfile << endl;
+					// }
+					// outfile << endl;
+					// outfile.close()
 				}
 			}
 			else{
@@ -750,7 +805,16 @@ void BCData::searchMinDegree(){
 		}
 		cout << "Final matrix : " << endl;
 		for(auto const & ikr : goodInputKeyRow){
-			printBits(get<2>(ikr), lenBlock);
+			auto const & row = get<2>(ikr);
+			auto const & countedBitWhenFound = rowWhenFirstFound[make_pair(get<0>(ikr), get<1>(ikr))];
+			for(uint i = 0; i < lenBlock; i++){
+				if(countedBitWhenFound[i]){
+					if(row & (1 << i)) cout << "1";
+					else cout << "0";
+				}
+				else cout << "*";
+			}
+			// printBits(get<2>(ikr), lenBlock);
 			cout << endl;
 		}
 
@@ -776,10 +840,14 @@ void BCData::searchMinDegree(){
 		}
 		outfile << "Final matrix : " << endl;
 		for(auto const & ikr : goodInputKeyRow){
-			uint64_t y = get<2>(ikr);
+			auto const & row = get<2>(ikr);
+			auto const & countedBitWhenFound = rowWhenFirstFound[make_pair(get<0>(ikr), get<1>(ikr))];
 			for(uint i = 0; i < lenBlock; i++){
-				outfile << (y & 1);
-				y >>= 1;
+				if(countedBitWhenFound[i]){
+					if(row & (1 << i)) outfile << "1";
+					else outfile << "0";
+				}
+				else outfile << "*";
 			}
 			outfile << endl;
 		}
@@ -825,9 +893,14 @@ void BCData::searchMinDegree_allInput(){
 			//knownPartialRows[r] = {i,k}, where #r is a partial row, #i and #k the corresponding input/key
 
 			vector<tuple<vector<uint8_t>, vector<vector<uint8_t>>, uint64_t>> goodInputKeyRow;
+			map<pair<vector<uint8_t>, vector<vector<uint8_t>>>, vector<bool>> rowWhenFirstFound;
 			while(M.nrows < lenBlock){
 				//Get an output bit to get an input/key
-				uint index = selectNextOutputBit(M);
+				uint index;
+				if(dedicatedPRESENTlastLayer)
+					index = selectNextOutputBit_dedicatedPresent(M);
+				else
+					index = selectNextOutputBit(M);
 				uint indexOutput = iblock*lenBlock + index;
 
 				//Get an input/key
@@ -890,6 +963,9 @@ void BCData::searchMinDegree_allInput(){
 					}
 					bool countedAll = true;
 					for(auto const & countedBiti : countedBit) countedAll &= countedBiti;
+
+					//Save the row before any reduction
+					rowWhenFirstFound[make_pair(input, keyval)] = countedBit;
 
 					if(!countedAll){
 						cout << "Partial row : ";
@@ -978,35 +1054,35 @@ void BCData::searchMinDegree_allInput(){
 							M.print();
 							cout << endl;
 
-							ofstream outfile;
-							outfile.open (name+"_"+to_string(rMax)+"r_linIndep_allInput.txt", ios::out | ios::app);
+							// ofstream outfile;
+							// outfile.open (name+"_"+to_string(rMax)+"r_linIndep_allInput.txt", ios::out | ios::app);
 
-							outfile << "For block " << iblock << " and input " << indexInput << endl;
-							outfile << "Input  : "; 
-							for(auto const & xx : currentInput) outfile << int(xx);
-							outfile << endl;
+							// outfile << "For block " << iblock << " and input " << indexInput << endl;
+							// outfile << "Input  : "; 
+							// for(auto const & xx : currentInput) outfile << int(xx);
+							// outfile << endl;
 
-							outfile << "Keys   : " << endl;
-							for(auto const & keypattern : currentKeyVal){
-								for(auto const & xx : keypattern) outfile << int(xx); 
-								outfile << endl;
-							}
-							outfile << endl;
+							// outfile << "Keys   : " << endl;
+							// for(auto const & keypattern : currentKeyVal){
+							// 	for(auto const & xx : keypattern) outfile << int(xx); 
+							// 	outfile << endl;
+							// }
+							// outfile << endl;
 
-							outfile << "newRow : "; 
-							for(uint i = 0; i < lenBlock; i++){
-								if(currentNewRow & (uint64_t(1) << i)) outfile << 1;
-								else outfile << 0;
-							}
-							outfile << endl;
+							// outfile << "newRow : "; 
+							// for(uint i = 0; i < lenBlock; i++){
+							// 	if(currentNewRow & (uint64_t(1) << i)) outfile << 1;
+							// 	else outfile << 0;
+							// }
+							// outfile << endl;
 
-							outfile << "Current Matrix :" << endl;
-							for(uint i = 0; i < M.nrows; i++){
-								for(uint j = 0; j < M.ncols; j++)
-									outfile << M.get(i,j);
-								outfile << endl;
-							}
-							outfile << endl;
+							// outfile << "Current Matrix :" << endl;
+							// for(uint i = 0; i < M.nrows; i++){
+							// 	for(uint j = 0; j < M.ncols; j++)
+							// 		outfile << M.get(i,j);
+							// 	outfile << endl;
+							// }
+							// outfile << endl;
 
 							if(M.nrows > prev_nrows){
 								//We found a new linearly independent row
@@ -1077,39 +1153,39 @@ void BCData::searchMinDegree_allInput(){
 						M.print();
 						cout << endl;
 
-						ofstream outfile;
-						outfile.open (name+"_"+to_string(rMax)+"r_linIndep_allInput.txt", ios::out | ios::app);
+						// ofstream outfile;
+						// outfile.open (name+"_"+to_string(rMax)+"r_linIndep_allInput.txt", ios::out | ios::app);
 
-						outfile << "Found a new partial row" << endl;
-						outfile << "For block " << iblock << " and input " << indexInput << endl;
-						outfile << "Input  : "; 
-						for(auto const & xx : input) outfile << int(xx);
-						outfile << endl;
+						// outfile << "Found a new partial row" << endl;
+						// outfile << "For block " << iblock << " and input " << indexInput << endl;
+						// outfile << "Input  : "; 
+						// for(auto const & xx : input) outfile << int(xx);
+						// outfile << endl;
 
-						outfile << "Keys   : " << endl;
-						for(auto const & keypattern : keyval){
-							for(auto const & xx : keypattern) outfile << int(xx); 
-							outfile << endl;
-						}
-						outfile << endl;
+						// outfile << "Keys   : " << endl;
+						// for(auto const & keypattern : keyval){
+						// 	for(auto const & xx : keypattern) outfile << int(xx); 
+						// 	outfile << endl;
+						// }
+						// outfile << endl;
 
-						outfile << "newRow : "; 
-						for(uint i = 0; i < lenBlock; i++){
-							if(countedBit[i]){
-								if(newRow & (uint64_t(1) << i)) outfile << 1;
-								else outfile << 0;
-							}
-							else outfile << "*";
-						}
-						outfile << endl;
+						// outfile << "newRow : "; 
+						// for(uint i = 0; i < lenBlock; i++){
+						// 	if(countedBit[i]){
+						// 		if(newRow & (uint64_t(1) << i)) outfile << 1;
+						// 		else outfile << 0;
+						// 	}
+						// 	else outfile << "*";
+						// }
+						// outfile << endl;
 
-						outfile << "Current Matrix :" << endl;
-						for(uint i = 0; i < M.nrows; i++){
-							for(uint j = 0; j < M.ncols; j++)
-								outfile << M.get(i,j);
-							outfile << endl;
-						}
-						outfile << endl;
+						// outfile << "Current Matrix :" << endl;
+						// for(uint i = 0; i < M.nrows; i++){
+						// 	for(uint j = 0; j < M.ncols; j++)
+						// 		outfile << M.get(i,j);
+						// 	outfile << endl;
+						// }
+						// outfile << endl;
 					}
 				}
 				else{
@@ -1141,7 +1217,15 @@ void BCData::searchMinDegree_allInput(){
 				}
 				cout << "Final matrix : " << endl;
 				for(auto const & ikr : goodInputKeyRow){
-					printBits(get<2>(ikr), lenBlock);
+					auto const & row = get<2>(ikr);
+					auto const & countedBitWhenFound = rowWhenFirstFound[make_pair(get<0>(ikr), get<1>(ikr))];
+					for(uint i = 0; i < lenBlock; i++){
+						if(countedBitWhenFound[i]){
+							if(row & (1 << i)) cout << "1";
+							else cout << "0";
+						}
+						else cout << "*";
+					}
 					cout << endl;
 				}
 
@@ -1167,10 +1251,14 @@ void BCData::searchMinDegree_allInput(){
 				}
 				outfile << "Final matrix : " << endl;
 				for(auto const & ikr : goodInputKeyRow){
-					uint64_t y = get<2>(ikr);
+					auto const & row = get<2>(ikr);
+					auto const & countedBitWhenFound = rowWhenFirstFound[make_pair(get<0>(ikr), get<1>(ikr))];
 					for(uint i = 0; i < lenBlock; i++){
-						outfile << (y & 1);
-						y >>= 1;
+						if(countedBitWhenFound[i]){
+							if(row & (1 << i)) outfile << "1";
+							else outfile << "0";
+						}
+						else outfile << "*";
 					}
 					outfile << endl;
 				}
@@ -1257,19 +1345,32 @@ BCData::improvedDynamicSearch(uint const indexOutput,
 		        	m.addConstr(m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 3)) == 0);
 		        }
 		        else if(indexInSbox == 2){
-		        	//Input forced to 1101 = 0xB
-		        	m.addConstr(m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 0)) == 1);
-		        	m.addConstr(m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 1)) == 1);
-		        	m.addConstr(m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 2)) == 0);
-		        	m.addConstr(m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 3)) == 1);
+		        	//Input forced to 1101 = 0xB or 1011 = 0xD
+		        	//Can be done with
+		        	//x0 - 1 == 0
+		        	//x3 - 1 == 0
+		        	//x1 + x2 - 1 == 0
+		        	GRBVar tmpx0 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 0));
+					GRBVar tmpx1 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 1));
+					GRBVar tmpx2 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 2));
+					GRBVar tmpx3 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 3));
+					m.addConstr(tmpx3 == 1);
+					m.addConstr(tmpx0 == 1);
+					m.addConstr(tmpx1 + tmpx2 == 1);
 		        }
 		        else if(indexInSbox == 1){
 		        	//Input forced to 0xA = 0101 or 0xC = 0011
-		        	//These should be the only ones of weight 2 so just add that
-		        	GRBLinExpr sumExpr(0);
-		        	for(uint i = 0; i < sboxSize; i++)
-		        		sumExpr += m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + i));
-		        	m.addConstr(sumExpr == 2);
+		        	//Can be done using the set of constraints
+		        	//x3 - 1 == 0
+		        	//x0 == 0
+		        	//x1 + x2 - 1 == 0
+		        	GRBVar tmpx0 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 0));
+					GRBVar tmpx1 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 1));
+					GRBVar tmpx2 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 2));
+					GRBVar tmpx3 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 3));
+					m.addConstr(tmpx3 == 1);
+					m.addConstr(tmpx0 == 0);
+					m.addConstr(tmpx1 + tmpx2 == 1);
 		        }
 		        else if(indexInSbox == 0){
 		        	//Input forced to 0110 = 0x6
@@ -1690,6 +1791,28 @@ uint selectNextOutputBit(SmallMatrix const & M){
 
 		return nonUnitCol[tmprand(prng)];
 	}
+}
+
+uint selectNextOutputBit_dedicatedPresent(SmallMatrix const & M){
+	/*
+	The first output bit without a unit vector, from 3 to 0
+	*/
+	if(M.nrows == 0) return 3;
+	else{
+		for(int i = 3; i >= 0; i--){
+			//Search if the i-th unit vector exists in the matrix
+			bool unitExist = false;
+			for(uint j = 0; j < M.nrows; j++){
+				auto const row = M.get(j);
+				if(__builtin_popcountll(row) == 1 && (row & (1 << i))){
+					unitExist = true;
+					break;
+				}
+			}
+			if(!unitExist) return i;
+		}
+	}
+	return 0;
 }
 
 void printBits(uint64_t const x, uint nbBits){

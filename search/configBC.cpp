@@ -97,6 +97,8 @@ BCData genDataPRESENT(uint const rMax, bool const dedicatedPRESENTlastLayer){
 
 	//Generate the SSB model
 	generateSSBModel(name+"_SSB",S,M_GF2,sboxSize,SSBSize,linAsSbox,keyAfterMC);
+	if(dedicatedPRESENTlastLayer)
+		generateSSBModel(name+"_SSB_dedicated",S,M_GF2,sboxSize,SSBSize,linAsSbox,keyAfterMC,true);
 
 	return BCData(name,rMax,blockSize,sboxSize,SSBSize,linAsSbox,keyAfterMC,S,P,M_GF2,dedicatedPRESENTlastLayer);
 }
@@ -133,7 +135,8 @@ void generateSSBModel(string const & name,
 					  uint const sboxSize,
 					  uint const SSBSize,
 					  bool linAsSbox,
-					  bool keyAfterMC){
+					  bool keyAfterMC,
+					  bool dedicatedPRESENTlastLayer){
 /*
 	Generate a model for a Super sbox using genSSBModel.sage
 	- #name is the name of the model, the model file will be called #name_SSB.mps
@@ -179,6 +182,10 @@ void generateSSBModel(string const & name,
 	//keyAfterMC
 	paramfile << "keyAfterMC = ";
 	if(keyAfterMC) paramfile << "True" << endl;
+	else paramfile << "False" << endl;
+	//dedicatedPRESENTlastLayer
+	paramfile << "dedicatedPRESENTlastLayer = ";
+	if(dedicatedPRESENTlastLayer) paramfile << "True" << endl;
 	else paramfile << "False" << endl;
 
 	paramfile.close();

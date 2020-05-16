@@ -35,6 +35,7 @@ class callbackSearchKeyPattern: public GRBCallback
     std::vector<std::vector<std::vector<GRBVar>>> keySSBVar;        //key variables for the SSB
     uint64_t ctrsolutions;                                          //counter for the solutions found
     std::vector<std::vector<boost::dynamic_bitset<>>> allSolutions; //vector to keep all examined solutions
+    bool startAfterSSB;
 
     callbackSearchKeyPattern(BCData const & xBCD,
                              unsigned int const xnbRounds,
@@ -43,7 +44,8 @@ class callbackSearchKeyPattern: public GRBCallback
                              std::vector<std::vector<GRBVar>> const & xallKeyVar,
                              std::vector<std::vector<std::vector<GRBVar>>> const & xinSSBVar,
                              std::vector<std::vector<std::vector<GRBVar>>> const & xoutSSBVar,
-                             std::vector<std::vector<std::vector<GRBVar>>> const & keySSBVar);
+                             std::vector<std::vector<std::vector<GRBVar>>> const & keySSBVar,
+                             bool const xstartAfterSSB);
 
   protected:
     void callback();

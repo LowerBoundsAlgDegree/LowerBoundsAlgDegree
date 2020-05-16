@@ -125,30 +125,30 @@ int main(){
 	
 	//Generate the data for the block cipher (see configBC files)
 	uint rMax = 10;
-	auto BCD = genDataGIFT(rMax);
-	// auto BCD = genDataPRESENT(rMax,true); 
+	// auto BCD = genDataGIFT(rMax);
+	auto BCD = genDataPRESENT(rMax,true); 
 	//For PRESENT our results on the min-degree were obtained by slightly changing the last sbox layer (while still maintaining correctness), hence the additional boolean
 
 	//Do some stuff (just examples)
 
 	// //Check the number of trails
-	vector<uint8_t>  input(hexToVec("FFFFFFEFFFFFFFFF"));
-	vector<uint8_t> output(hexToVec("1000000000000000"));
-	vector<vector<uint8_t>> keyval({
-							hexToVec("0000000000000000"),
-							hexToVec("0000000000000000"),
-							hexToVec("0000000081004254"),
-							hexToVec("2A82401244260E0D"),
-							hexToVec("52A201812E100100"),
-							hexToVec("0130100006100000"),
-							hexToVec("0000000000000000"),
-							hexToVec("0000000000000000"),
-							hexToVec("0000000000000000")});
-	computeNumberTrails(BCD,input,output,keyval); //With these values for Gift 10r, should be 1 trail
+	// vector<uint8_t>  input(hexToVec("FFFFFFEFFFFFFFFF"));
+	// vector<uint8_t> output(hexToVec("1000000000000000"));
+	// vector<vector<uint8_t>> keyval({
+	// 						hexToVec("0000000000000000"),
+	// 						hexToVec("0000000000000000"),
+	// 						hexToVec("0000000081004254"),
+	// 						hexToVec("2A82401244260E0D"),
+	// 						hexToVec("52A201812E100100"),
+	// 						hexToVec("0130100006100000"),
+	// 						hexToVec("0000000000000000"),
+	// 						hexToVec("0000000000000000"),
+	// 						hexToVec("0000000000000000")});
+	// computeNumberTrails(BCD,input,output,keyval); //With these values, should be 1 trail
 
 	// //Prove the full degree for all output bits
 	// proveFullDegreeAllOutputBit(BCD);
 
-	
+	proveFullMinDegreeAllBlocks(BCD);
 	
 }

@@ -451,8 +451,9 @@ def genBaseModelSPMCARK(rMax, S, P, M, name, linAsSbox,noLastMC,dedicatedPRESENT
 					outputvar = [y[r][sboxSize*j+i] for i in range(sboxSize)]
 					addSboxConstr(m, ineqSbox, inputvar, outputvar)
 			else:
-				#dedicated last layer (y0,y1+y3,y2,y3)
+				#dedicated last layer (y0,y1+y3,y2,y3+y2)
 				anfS[1] = anfS[1] + anfS[3]
+				anfS[3] = anfS[2] + anfS[3]
 				T = divPropANFBinTable(anfS)
 				ineqSboxDecicated = sboxReducedInequalities(T)
 				for j in range(nbSbox):
@@ -653,8 +654,9 @@ def genBaseModelSPMCARK_startAfterSSB(rMax, S, P, M, name, linAsSbox,noLastMC,de
 					outputvar = [y[r][sboxSize*j+i] for i in range(sboxSize)]
 					addSboxConstr(m, ineqSbox, inputvar, outputvar)
 			else:
-				#dedicated last layer (y0,y1+y3,y2,y3)
+				#dedicated last layer (y0,y1+y3,y2,y3+y2)
 				anfS[1] = anfS[1] + anfS[3]
+				anfS[3] = anfS[2] + anfS[3]
 				T = divPropANFBinTable(anfS)
 				ineqSboxDecicated = sboxReducedInequalities(T)
 				for j in range(nbSbox):

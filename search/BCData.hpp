@@ -75,6 +75,9 @@ class BCData{
 		uint64_t countSSBTrail(std::vector<uint8_t> & u,
 							   std::vector<uint8_t> & k,
 							   std::vector<uint8_t> & v) const;
+		uint64_t countSSBTrail_dedicatedPresent(std::vector<uint8_t> & u,
+							   std::vector<uint8_t> & k,
+							   std::vector<uint8_t> & v) const;
 		/*
 			Return the number of trails over the SSB with
 			#u the input division property
@@ -178,6 +181,8 @@ uint selectNextOutputBit(SmallMatrix const & M);
 	If the matrix is empty, return a random column
 	Else, return a random column that does not have a unit vector
 */
+
+uint selectNextOutputBit_dedicatedPresent(SmallMatrix const & M);
 
 void printBits(uint64_t const x, uint nbBits);
 //print the first #nbBits of x in cout
