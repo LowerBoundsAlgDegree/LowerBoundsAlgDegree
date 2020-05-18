@@ -10,6 +10,8 @@
 #define TIME_LIMIT_ONESTEPDYNAMIC 30			/*Time limit (in seconds) in improvedDynamicSearch to find one iteration in the first step*/
 #define DYNAMIC_STEP1_MIPFOCUS 1				/*Hint for Gurobi to focus more on finding solution than proving optimality. Seems to improve the speed, see the Gurobi doc for more details*/
 
+#define AGRESSIVE_STRATEGY_MINDEGREE false		/*Define how a number of trails > 0 should be treated in the min degree search for non-diagonal coefficient in the matrix. false for GIFT was enough, but for Present, setting this to true + using the dedicated last layer is better*/
+
 #define MAX_NUMBER_SOLCOUNT_FULLCIPHER 100000	/*Solution limit when counting the total number of trails over the whole cipher in countTrailsFullCipher*/
 #define TIME_LIMIT_COUNTTRAILS_FULLCIPER 60	/*Time limit (in seconds) when counting the total number of trails over the whole cipher in countTrailsFullCipher. Set to GRB_INFINITY for unlimited time*/
 
@@ -174,7 +176,8 @@ uint64_t BCData::countSSBTrail_dedicatedPresent(vector<uint8_t> & u,
 
 pair<uint64_t,bool> BCData::countTrailsFullCipher(vector<uint8_t> const & input,
 							   vector<uint8_t> const & output, 
-							   vector<vector<uint8_t>> const & keyval){
+							   vector<vector<uint8_t>> const & keyval,
+							   int64_t const specialSolutionLimit){
 	/*
 		Count the number of trails from #input to #output using #keyval for the keys' division property
 		Return a pair (nbTrail, check) where :
@@ -244,10 +247,14 @@ pair<uint64_t,bool> BCData::countTrailsFullCipher(vector<uint8_t> const & input,
 	m.setObjective(objExpr);
 
 	cout << "Counting the total number of trails" << endl;
-	callbackCount cb = callbackCount(MAX_NUMBER_SOLCOUNT_FULLCIPHER);
+	// callbackCount cb = callbackCount(MAX_NUMBER_SOLCOUNT_FULLCIPHER);
 	m.set(GRB_DoubleParam_TimeLimit, TIME_LIMIT_COUNTTRAILS_FULLCIPER);
 	m.set(GRB_IntParam_Threads,MAX_GRB_THREAD);
-	m.setCallback(&cb);	
+	// m.setCallback(&cb);	
+	if(specialSolutionLimit == -1)
+		m.set(GRB_IntParam_SolutionLimit, MAX_NUMBER_SOLCOUNT_FULLCIPHER);
+	else
+		m.set(GRB_IntParam_SolutionLimit, specialSolutionLimit);
 	m.update();
 	m.optimize();
 
@@ -256,7 +263,7 @@ pair<uint64_t,bool> BCData::countTrailsFullCipher(vector<uint8_t> const & input,
 
 	uint totalNumberTrails = m.get(GRB_IntAttr_SolCount);
 	bool fullOptimized = true;
-	if(!cb.wasAborted && m.get(GRB_IntAttr_Status) == GRB_OPTIMAL){
+	if(m.get(GRB_IntAttr_Status) == GRB_OPTIMAL){
 		cout << endl << totalNumberTrails << " total trails" << endl;
 	}
 	else if(m.get(GRB_IntAttr_Status) == GRB_TIME_LIMIT){
@@ -264,8 +271,13 @@ pair<uint64_t,bool> BCData::countTrailsFullCipher(vector<uint8_t> const & input,
 		cout << totalNumberTrails << " trails found" << endl;
 		fullOptimized = false;
 	}
+	else if(m.get(GRB_IntAttr_Status) == GRB_SOLUTION_LIMIT){
+		cout << endl << "counting solutions aborted, too many solutions" << endl;
+		cout << totalNumberTrails << " trails found" << endl;
+		fullOptimized = false;
+	}
 	else{
-		cout << endl << "counting solutions aborted, too many solutions or too much time spent" << endl;
+		cout << endl << "counting solutions aborted with Status " << m.get(GRB_IntAttr_Status) << endl;
 		cout << totalNumberTrails << " trails found" << endl;
 		fullOptimized = false;
 	}
@@ -512,6 +524,7 @@ void BCData::searchMinDegree(){
 
 				//Count the number of trails for the remaining output bits
 				//Don't count if we already have a unit vector for this bit
+				//Only focus on either 0 trails or >0. >0 is considered *
 				for(uint ioutput = 0; ioutput < lenBlock; ioutput++){
 					if(ioutput != index){
 						//Check if we already have a unit vector for this bit
@@ -539,15 +552,32 @@ void BCData::searchMinDegree(){
 							}
 							cout << "Counting trails..." << endl;
 
-							auto nbTrail_fullOpti = countTrailsFullCipher(input,output,keyval);
-							auto nbTrail = nbTrail_fullOpti.first;
-							cout << nbTrail << " trails for output " << ioutput << endl;
-							if(nbTrail_fullOpti.second){
-								if(nbTrail % 2 == 1) newRow |= (uint64_t(1) << ioutput);
-								countedBit[ioutput] = true;
+							if(! AGRESSIVE_STRATEGY_MINDEGREE){
+
+								auto nbTrail_fullOpti = countTrailsFullCipher(input,output,keyval);
+								auto nbTrail = nbTrail_fullOpti.first;
+								cout << nbTrail << " trails for output " << ioutput << endl;
+								if(nbTrail_fullOpti.second){
+									if(nbTrail % 2 == 1) newRow |= (uint64_t(1) << ioutput);
+									countedBit[ioutput] = true;
+								}
+								else{
+									cout << "could not compute all trails" << endl;
+								}
 							}
 							else{
-								cout << "could not compute all trails" << endl;
+								//Consider that any number of trails > 0 is a *
+								auto nbTrail_fullOpti = countTrailsFullCipher(input,output,keyval,1);
+								auto nbTrail = nbTrail_fullOpti.first;
+								cout << nbTrail << " trails for output " << ioutput << endl;
+								if(nbTrail_fullOpti.second){
+									if(nbTrail == 0){
+										countedBit[ioutput] = true;
+									}
+								}
+								else{
+									cout << "did not compute all trails" << endl;
+								}
 							}
 						}
 					}
@@ -948,15 +978,32 @@ void BCData::searchMinDegree_allInput(){
 								}
 								cout << "Counting trails..." << endl;
 
-								auto nbTrail_fullOpti = countTrailsFullCipher(input,output,keyval);
-								auto nbTrail = nbTrail_fullOpti.first;
-								cout << nbTrail << " trails for output " << ioutput << endl;
-								if(nbTrail_fullOpti.second){
-									if(nbTrail % 2 == 1) newRow |= (uint64_t(1) << ioutput);
-									countedBit[ioutput] = true;
+								if(! AGRESSIVE_STRATEGY_MINDEGREE){
+
+									auto nbTrail_fullOpti = countTrailsFullCipher(input,output,keyval);
+									auto nbTrail = nbTrail_fullOpti.first;
+									cout << nbTrail << " trails for output " << ioutput << endl;
+									if(nbTrail_fullOpti.second){
+										if(nbTrail % 2 == 1) newRow |= (uint64_t(1) << ioutput);
+										countedBit[ioutput] = true;
+									}
+									else{
+										cout << "could not compute all trails" << endl;
+									}
 								}
 								else{
-									cout << "could not compute all trails" << endl;
+									//Consider that any number of trails > 0 is a *
+									auto nbTrail_fullOpti = countTrailsFullCipher(input,output,keyval,1);
+									auto nbTrail = nbTrail_fullOpti.first;
+									cout << nbTrail << " trails for output " << ioutput << endl;
+									if(nbTrail_fullOpti.second){
+										if(nbTrail == 0){
+											countedBit[ioutput] = true;
+										}
+									}
+									else{
+										cout << "did not compute all trails" << endl;
+									}
 								}
 							}
 						}
@@ -1364,13 +1411,18 @@ BCData::improvedDynamicSearch(uint const indexOutput,
 		        	//x3 - 1 == 0
 		        	//x0 == 0
 		        	//x1 + x2 - 1 == 0
-		        	GRBVar tmpx0 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 0));
-					GRBVar tmpx1 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 1));
-					GRBVar tmpx2 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 2));
-					GRBVar tmpx3 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 3));
-					m.addConstr(tmpx3 == 1);
-					m.addConstr(tmpx0 == 0);
-					m.addConstr(tmpx1 + tmpx2 == 1);
+		   //      	GRBVar tmpx0 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 0));
+					// GRBVar tmpx1 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 1));
+					// GRBVar tmpx2 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 2));
+					// GRBVar tmpx3 = m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 3));
+					// m.addConstr(tmpx3 == 1);
+					// m.addConstr(tmpx0 == 0);
+					// m.addConstr(tmpx1 + tmpx2 == 1);
+					//Input forced to 0xC = 0011
+					m.addConstr(m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 0)) == 0);
+		        	m.addConstr(m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 1)) == 0);
+		        	m.addConstr(m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 2)) == 1);
+		        	m.addConstr(m.getVarByName("x_"+to_string(rMax_minus_1)+"_"+to_string(sboxSize*indexActiveSbox + 3)) == 1);
 		        }
 		        else if(indexInSbox == 0){
 		        	//Input forced to 0110 = 0x6

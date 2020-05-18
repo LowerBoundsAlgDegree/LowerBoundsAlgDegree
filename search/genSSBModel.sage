@@ -156,9 +156,9 @@ def genBaseModelSMCARKS(name,S,M,sboxSize,blockSize,linAsSbox,dedicatedPRESENTla
 			outputvar = [v[sboxSize*j+i] for i in range(sboxSize)]
 			addSboxConstr(m,ineqSbox,inputvar,outputvar)
 	else:
-		#dedicated last layer (y0,y1+y3,y2,y3+y2)
-		anfS[1] = anfS[1] + anfS[3]
-		anfS[3] = anfS[2] + anfS[3]
+		#dedicated last layer (y0,y0+y1+y3,y2,y0+y3+y2)
+		anfS[1] = anfS[0] + anfS[1] + anfS[3]
+		anfS[3] = anfS[0] + anfS[2] + anfS[3]
 		T = divPropANFBinTable(anfS)
 		ineqSboxDecicated = sboxReducedInequalities(T)
 		for j in range(nbSbox):

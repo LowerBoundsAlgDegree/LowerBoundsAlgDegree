@@ -90,7 +90,8 @@ class BCData{
 
 		std::pair<uint64_t,bool> countTrailsFullCipher(std::vector<uint8_t> const & input,
 							   		   std::vector<uint8_t> const & output, 
-							   		   std::vector<std::vector<uint8_t>> const & keyval);
+							   		   std::vector<std::vector<uint8_t>> const & keyval,
+							   		   int64_t const specialSolutionLimit = -1);
 		/*
 			Count the number of trails from #input to #output using #keyval for the keys' division property
 			Return a pair (nbTrail, check) where :
