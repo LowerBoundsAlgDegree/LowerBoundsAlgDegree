@@ -7,8 +7,8 @@ LFLAGS = -L $(GUROBI_HOME)/lib/ -lgurobi_g++5.2 -lgurobi81 -lgmpxx -lgmp
 %.o: %.cpp
 	$(CXX) $(IFLAGS) $(LFLAGS) $(CXXFLAGS) -c $< -o $@ 
 
-main :  main.o BCData.o configBC.o customCallback.o SmallMatrix.o 
-	$(CXX) $(CXXFLAGS) $(IFLAGS) -o main main.o BCData.o configBC.o customCallback.o SmallMatrix.o $(LFLAGS)
+gift :  gift.o
+	$(CXX) $(CXXFLAGS) $(IFLAGS) -o gift gift.o $(LFLAGS)
 
 clean :
 	rm -rf *.o
