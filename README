@@ -1,56 +1,12 @@
 This repository contains the code used to obtain some of our results in the paper "Lower Bounds on the Algebraic Degree of Block Ciphers".
 
-This tool is rather generic and can (in theory) handle any AES-like block ciphers.
-The current SageMath code used to generate the MILP model however can only manage up to 4-bit Sboxes, as such our results on AES were obtained with a different implementation.
+The different folder contents are the following :
 
-For the purpose of this implementation, we define "AES-like" block ciphers as a block cipher with round function  built as
-SB -> SR -> ARK -> MC or
-SB -> SR -> MC -> ARK,
-where :
-- SB is an Sbox layer, applied on all nibbles on the state
-- SR is a nibble-wise permutation
-- ARK is the key addition on all nibbles of the state
-- MC is a MixColumns operation on each column of the state
+- "search" contains our implementation to detect the input/key/output patterns. Especially this is the implementation used to get the results for GIFT-64 and PRESENT
 
-These are the only two possible round function because :
-- A round function SB -> ARK -> SR -> MC is equivalent to SB -> SR -> ARK -> MC by reordering the bits of the key according to SR.
-- A round function ARK -> SB -> SR -> MC is equivalent (for our purpose) to SB -> SR -> MC -> ARK, as if we directly add a key to the plaintext, the parity set of this key is necessarily 0 if the parity set of the plaintext is of weight blockSize - 1 (which is the main application).
+- "simple_verification_code" contains short and easy to read code to verify the number of trails for a given input/key/output pattern for GIFT-64, Skinny64 and AES.
 
-There are some limitations with this specific implementation :
-- It requires that all S-boxes are the same in each round and applied on each word of the state, thus in particular block cipher with a partial S-box layer are not handled. In the same way, the MixColumns operation should be the same for each column in each round.
-
-- Also, block ciphers that do not have a Super S-box representation are not handled (e.g. RECTANGLE) as they are not compatible with our algorithm which heavily relies on these Super S-boxes.
-
-- The small trick we used to speed up the search for PRESENT required to add some dedicated code, rather than being detected automatically.
-While such a trick was not necessary for GIFT, if one would want to use this tool to prove some lower bounds for a custom cipher, then similar tricks as in PRESENT could be required and as such, the implementation would need to be tweaked manually.
-Similar tricks were used in the search for Skinny, but were obtained with another implementation.
-The correctness of our results was still checked with this implementation, and one can check the number of trails for Skinny with this code (see main.cpp for examples)
-
-- Note that in the case of GIFT and PRESENT, the bit order is slightly different than in the specification and in the #SAT verification code.
-Indeed to make GIFT and PRESENT compatible with this implementation, we had to do some reordering of the bits in the state.
-This does not change the correctness of our results, as it just means that the bits are read in a different order.
-For a vector x representing a given value in a trail, the following permutation is used to reorder the bits (essentially, a nibble wise transpose)
-T = {0,1,2,3,16,17,18,19,32,33,34,35,48,49,50,51,4,5,6,7,20,21,22,23,36,37,38,39,52,53,54,55,8,9,10,11,24,25,26,27,40,41,42,43,56,57,58,59,12,13,14,15,28,29,30,31,44,45,46,47,60,61,62,63}
-That is, if one get a trail vector x from this tool, the verification code needs to use x' defined as x'[T[i]] = x[i]
-This permutation is an involution, so the same applies if one wants to take a vector from the verification code and use it in this code to verify with MILP.
-
-There are numerous threshold in place to make the search easier, for example thresholds on the time spent in a given step, the maximal number of trails enumerated etc.
-The thresholds we used to get our results were obtained through various experiments, thus again might need some manual tweaking for different ciphers. 
-Note however that the implementation should easily allow this by the use of different macros. To add to this, due to these different thresholds, we might for example discard key patterns that could lead to better bounds but would require too much time to actually prove these bounds.
-This somewhat heuristic behavior is both a curse and a blessing : the time required by the different computations is decently small but the results obtained are not necessarily tight.
-
-
-Information about the block cipher is handled by a "BCData" object, containing e.g. the Sbox, MC matrix, SR permutation etc.
-For the block ciphers we studied in the paper, the "configBC.*" files contains the definition of such an object for each cipher.
-
-The "main.cpp" file contains examples and wrapper functions to use this tool.
-Especially, to compute the number of trails for a block cipher, given the input, output and key parity set, one should take a look at the "computeNumberTrails" function in "main.cpp".
-We refer the reader to the other functions in the "main.cpp" to know which function to use for a given purpose.
-
-To fine tune some parameters of the search algorithms such as time limits, solution limits etc., 
-macros are used in the code at the beginning of the "BCData.cpp" and "customCallback.cpp" files.
-It is a bit dirty but easier to change and than handling a ton of parameters everywhere.
-Our results were obtained with the current values unless specified otherwise in the code.
+- "pattern" contains the different input/key/ouput patterns used to get our results.
 
 An installation of the MILP optimizer Gurobi is necessary (https://www.gurobi.com/)
 The GUROBI_HOME environment variable should be set according to the Gurobi documentation.
