@@ -1,4 +1,4 @@
-This repository contains the code used to obtain some of our results in the paper "Lower Bounds on the Algebraic Degree of Block Ciphers".
+This repository contains the code used to obtain some of our results in the paper "Lower Bounds on the Degree of Block Ciphers".
 
 This tool is rather generic and can (in theory) handle any AES-like block ciphers.
 The current SageMath code used to generate the MILP model however can only manage up to 4-bit Sboxes, as such our results on AES were obtained with a different implementation.
