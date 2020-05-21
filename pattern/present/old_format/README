@@ -1,0 +1,5 @@
+Patterns for PRESENT with a (not very compact) binary format.
+Note that these pattern were obtain with the code from the "search" folder, as such there are some bit/index reordering (see the README in the "search" folder for details)
+Patterns for the "all high degree monomials" property for 11 rounds will be uploaded once the computation is finished
+
+Should be updated to a cleaner hex format

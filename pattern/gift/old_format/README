@@ -1,0 +1,4 @@
+Patterns for Gift 64 with a (not very compact) binary format
+Note that these pattern were obtain with the code from the "search" folder, as such there are some bit/index reordering (see the README in the "search" folder for details)
+
+Should be updated to a cleaner hex format
