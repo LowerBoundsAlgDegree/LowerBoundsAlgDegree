@@ -37,7 +37,94 @@ vector<vector<uint8_t>> keyval({
 computeNumberTrails(BCD,input,output,keyval);
 //Should lead to 1 trail
 
+---------------------------------------------------------------------------
+
+If one want to check the patterns for the intermediate number of rounds :
+First example in GIFT_9r_lowerBounds.txt :
+
+Found good input of weight 2 for 1 rounds : 
+1100000000000000000000000000000000000000000000000000000000000000
+Found good input of weight 3 for 2 rounds : 
+0001000000000000101000000000000000000000000000000000000000000000
+Found good input of weight 8 for 3 rounds : 
+0000110000000000000000000000000000000111000000001011000000000000
+Found good input of weight 18 for 4 rounds : 
+1010000000010010000000000111000000000000101101111100000000001011
+Found good input of weight 36 for 5 rounds : 
+1100011101111011010110111011110001110000101100000111101010011001
+Found good input of weight 52 for 6 rounds : 
+1111011101111011111111111011111110111110111010111101011110111011
+Found good input of weight 56 for 7 rounds : 
+1111111111111111101111111110111110111111111001111011110111110111
+Found good input of weight 61 for 8 rounds : 
+1111111111111111111111100111101111111111111111111111111111111111
+For output bit 0 : 
+Input  : 1111111111111111111111111111111111110111111111111111111111111111
+Keys   : 
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0110001001001010000000000000000000000000000000000001000000000000
+0000000000000000000000000000000001000000000000000000100000000000
+0000000000000000000000000000000000000000000000011100000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+
+Let's take the intermediate input for 5 rounds :
+1100011101111011010110111011110001110000101100000111101010011001
+So this should be used as input
+Since we have 5 rounds, we need to use the 5-1 = 4 last key patterns
+0000000000000000000000000000000000000000000000011100000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+Output bit is 0 so the output vector is :
+1000000000000000000000000000000000000000000000000000000000000000
+
+This lead to the following code
+uint rMax = 5;
+auto BCD = genDataGIFT(rMax);
+vector<uint8_t>  input({1,1,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,1,0,1,1,0,1,1,1,0,1,1,1,1,0,0,0,1,1,1,0,0,0,0,1,0,1,1,0,0,0,0,0,1,1,1,1,0,1,0,1,0,0,1,1,0,0,1});
+vector<uint8_t> output({1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0});
+vector<vector<uint8_t>> keyval({
+						{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+						{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+						{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+						{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}});
+computeNumberTrails(BCD,input,output,keyval);
+//Should lead to 1 trail
+
+
+---------------------------------------------------------------------------
+
+If one wants to check the results for the minDegree
+To prove min degree we only need to use the 4 output bits of each S-box for each set of pattern because the last key is non zero (see paper)
+The GIFT_10r_minDegree_summary.txt file is organized as follow :
+
+Block i is of max degree and linearly independent
+4 input/key pattern
+The resulting matrix
+
+The matrix only contains the parity of the number of trails (which is what we need)
+* means not computed but the matrix is full rank regardless
+Please note that in the paper, the matrix was given such that the parity of the number of trails for a fixed output bit and multiple input/key corresponds to a row
+Here this matrix is transposed, thus one column corresponds to the parity of the number of trails for the same output bit, using each input/key
+
+i denotes the index of the block, i.e. the index of the sbox
+So for example for the second set of pattern, starting with 
+Block 1 is of max degree and linearly independent
+corresponds to the first S-box, i.e. output bits of index 4 5 6 and 7
+Thus the 4 output vectors to be used for each input/key pattern to build the matrix should be
+0000100000000000000000000000000000000000000000000000000000000000
+0000010000000000000000000000000000000000000000000000000000000000
+0000001000000000000000000000000000000000000000000000000000000000
+0000000100000000000000000000000000000000000000000000000000000000
+Then by fixing the input/key/output to the corresponding patterns, and using the previous code, one can check the resulting number of trails as described above
+
+The patterns for min degree for all inputs (i.e. the all high degree monomial property) follow the same structure
 
 
 
 Should be updated to a cleaner hex format
+
+

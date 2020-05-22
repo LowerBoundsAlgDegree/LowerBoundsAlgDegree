@@ -43,5 +43,11 @@ vector<vector<uint8_t>> keyval({
 computeNumberTrails(BCD,input,output,keyval);
 //Should lead to 17 trails
 
+---------------------------------------------------------------------------
+
+To test lower bounds on intermediate rounds and min degree, please refer to the README in the /patterns/gift/old_format as it is the same idea
+!!!!! Remember to use !!!!!
+auto BCD = genDataPRESENT(rMax,true);
+To check the results for min degree for PRESENT
 
 Should be updated to a cleaner hex format
