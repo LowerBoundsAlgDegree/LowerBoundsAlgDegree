@@ -1,0 +1,61 @@
+Pattrns for Skinny64
+
+These are already in a compact hex format, and are directly compatible with the "skinny.cpp" verification program in the "simple_verification_code" folder
+Example, first pattern in degree.txt
+
+in  : FFFFFFFFFFFFFEFF
+k00 : 0000000000000000
+k01 : 0460000000000000
+k02 : 000004000000C000
+k03 : 80080000C4C40880
+k04 : 008000008000000C
+k05 : 08004080C00C4080
+k06 : 0000C040004800C0
+k07 : 0000400000000000
+k08 : 0000000000000000
+out : 1000000000000000
+num : 1
+
+Then in the "skinny.cpp", around lines 65, the code to initialize the patterns should be
+// rounds that we show the lower bound
+int rounds = 10;
+
+// input/key/output pattern
+unsigned long long int in = 0xFFFFFFFFFFFFFEFF;
+vector<unsigned long long int> key = {
+	0x0000000000000000,
+	0x0460000000000000,
+	0x000004000000C000,
+	0x80080000C4C40880,
+	0x008000008000000C,
+	0x08004080C00C4080,
+	0x0000C040004800C0,
+	0x0000400000000000,
+	0x0000000000000000
+};
+unsigned long long int out = 0x1000000000000000;
+//Should be 1 for Skinny 10r
+
+
+
+If one want to check the results with the implementation from the "search" folder usingthe function in "main.cpp"
+Because the results for Skinny were obtained with a different implementation where the key was added before the SR operation (while here it is added after SR)
+We need to permute the nibbles to get the same results, hence the use of the permuteNibbleSkinny function
+
+Lead to this code :
+
+uint rMax = 10;
+auto BCD = genDataSkinny64(rMax);
+vector<uint8_t>  input(hexToVec("FFFFFFFFFFFFFEFF"));
+vector<uint8_t> output(hexToVec("1000000000000000"));
+vector<vector<uint8_t>> keyval({
+						hexToVec(permuteNibbleSkinny("0000000000000000")),
+						hexToVec(permuteNibbleSkinny("0460000000000000")),
+						hexToVec(permuteNibbleSkinny("000004000000C000")),
+						hexToVec(permuteNibbleSkinny("80080000C4C40880")),
+						hexToVec(permuteNibbleSkinny("008000008000000C")),
+						hexToVec(permuteNibbleSkinny("08004080C00C4080")),
+						hexToVec(permuteNibbleSkinny("0000C040004800C0")),
+						hexToVec(permuteNibbleSkinny("0000400000000000")),
+						hexToVec(permuteNibbleSkinny("0000000000000000"))});
+computeNumberTrails(BCD,input,output,keyval); //Should be 1 for Skinny 10r

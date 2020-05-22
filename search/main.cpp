@@ -145,7 +145,7 @@ int main(){
 	
 	
 	//Generate the data for the block cipher (see configBC files)
-	uint rMax = 10;
+	uint rMax = 9;
 	auto BCD = genDataGIFT(rMax);
 	// auto BCD = genDataPRESENT(rMax,true); 
 	//For PRESENT our results on the min-degree were obtained by slightly changing the last sbox layer (while still maintaining correctness), hence the additional boolean
@@ -153,19 +153,18 @@ int main(){
 	//Do some stuff (just examples)
 
 	//Check the number of trails
-	vector<uint8_t>  input(hexToVec("FFFFFFEFFFFFFFFF"));
-	vector<uint8_t> output(hexToVec("1000000000000000"));
+	vector<uint8_t>  input(hexToVec("FEFFFFFFFFFFFFFF"));
+	vector<uint8_t> output(hexToVec("0000000000000008"));
 	vector<vector<uint8_t>> keyval({
 							hexToVec("0000000000000000"),
 							hexToVec("0000000000000000"),
-							hexToVec("0000000081004254"),
-							hexToVec("2A82401244260E0D"),
-							hexToVec("52A201812E100100"),
-							hexToVec("0130100006100000"),
-							hexToVec("0000000000000000"),
+							hexToVec("0404000000001008"),
+							hexToVec("01440500C0629189"),
+							hexToVec("191D100000361210"),
+							hexToVec("1004000000000006"),
 							hexToVec("0000000000000000"),
 							hexToVec("0000000000000000")});
-	computeNumberTrails(BCD,input,output,keyval); //With these values for Gift, should be 1 trail
+	computeNumberTrails(BCD,input,output,keyval); //With these values for Gift 9r, should be 1 trail
 
 	// //Prove the full degree for all output bits
 	proveFullDegreeAllOutputBit(BCD);
@@ -178,22 +177,21 @@ int main(){
 	//Because the results for Skinny were obtained with a different implementation where the key was added before the SR operation (while here it is added after SR)
 	//We need to permute the nibbles to get the same results, hence the use of the permuteNibbleSkinny function
 
-	// uint rMax = 11;
+	// uint rMax = 10;
 	// auto BCD = genDataSkinny64(rMax);
-	// vector<uint8_t>  input(hexToVec("FFFFFFFEFFFFFFFF"));
+	// vector<uint8_t>  input(hexToVec("FFFFFFFFFFFFFEFF"));
 	// vector<uint8_t> output(hexToVec("1000000000000000"));
 	// vector<vector<uint8_t>> keyval({
-	// 						hexToVec(permuteNibbleSkinny("0000000800000000")),
 	// 						hexToVec(permuteNibbleSkinny("0000000000000000")),
-	// 						hexToVec(permuteNibbleSkinny("0000000000008004")),
-	// 						hexToVec(permuteNibbleSkinny("0000000480040000")),
-	// 						hexToVec(permuteNibbleSkinny("8084800004080400")),
-	// 						hexToVec(permuteNibbleSkinny("84C04C4088044028")),
-	// 						hexToVec(permuteNibbleSkinny("0400C880C0040000")),
-	// 						hexToVec(permuteNibbleSkinny("0000C00000040000")),
+	// 						hexToVec(permuteNibbleSkinny("0460000000000000")),
+	// 						hexToVec(permuteNibbleSkinny("000004000000C000")),
+	// 						hexToVec(permuteNibbleSkinny("80080000C4C40880")),
+	// 						hexToVec(permuteNibbleSkinny("008000008000000C")),
+	// 						hexToVec(permuteNibbleSkinny("08004080C00C4080")),
+	// 						hexToVec(permuteNibbleSkinny("0000C040004800C0")),
 	// 						hexToVec(permuteNibbleSkinny("0000400000000000")),
-	// 						hexToVec(permuteNibbleSkinny("0000000000400000"))});
-	// computeNumberTrails(BCD,input,output,keyval); //Should be 5211
+	// 						hexToVec(permuteNibbleSkinny("0000000000000000"))});
+	// computeNumberTrails(BCD,input,output,keyval); //Should be 1 for Skinny 10r
 	
 	
 }

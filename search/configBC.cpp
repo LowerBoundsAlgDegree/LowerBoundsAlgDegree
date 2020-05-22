@@ -5,25 +5,6 @@
 using namespace std;
 typedef unsigned int uint;
 
-BCData genDataMidori64(uint const rMax){
-	//Generate the data required for Midori64 over #rMax rounds
-
-	string name = "Midori";
-	uint blockSize = 64;
-	uint sboxSize = 4;
-	uint SSBSize = 16;
-	bool keyAfterMC = true;
-	bool linAsSbox = true;
-	vector<uint> S({0xc,0xa,0xd,0x3,0xe,0xb,0xf,0x7,0x8,0x9,0x1,0x5,0x0,0x2,0x4,0x6});
-	vector<uint> P({0,7,14,9,5,2,11,12,15,8,1,6,10,13,4,3});
-	vector<vector<uint8_t>> M_GF4({{0,1,1,1},{1,0,1,1},{1,1,0,1},{1,1,1,0}});
-
-	//Generate the SSB model
-	generateSSBModel(name+"_SSB",S,M_GF4,sboxSize,SSBSize,linAsSbox,keyAfterMC);
-
-	return BCData(name,rMax,blockSize,sboxSize,SSBSize,linAsSbox,keyAfterMC,S,P,M_GF4);
-}
-
 BCData genDataSkinny64(uint const rMax){
 	//Generate the data required for Skinny64 over #rMax rounds
 
@@ -36,25 +17,6 @@ BCData genDataSkinny64(uint const rMax){
 	vector<uint> S({12,6,9,0,1,10,2,11,3,8,5,13,4,14,7,15});
 	vector<uint> P({0,5,10,15,4,9,14,3,8,13,2,7,12,1,6,11});
 	vector<vector<uint8_t>> M_GF4({{1,0,1,1},{1,0,0,0},{0,1,1,0},{1,0,1,0}});
-
-	//Generate the SSB model
-	generateSSBModel(name+"_SSB",S,M_GF4,sboxSize,SSBSize,linAsSbox,keyAfterMC);
-
-	return BCData(name,rMax,blockSize,sboxSize,SSBSize,linAsSbox,keyAfterMC,S,P,M_GF4);
-}
-
-BCData genDataCRAFT(uint const rMax){
-	//Generate the data required for Craft over #rMax rounds
-
-	string name = "CRAFT";
-	uint blockSize = 64;
-	uint sboxSize = 4;
-	uint SSBSize = 16;
-	bool keyAfterMC = false;
-	bool linAsSbox = true;
-	vector<uint> S({0xc,0xa,0xd,0x3,0xe,0xb,0xf,0x7,0x8,0x9,0x1,0x5,0x0,0x2,0x4,0x6});
-	vector<uint> P({15,10,9,4,3,6,5,8,7,2,1,12,11,14,13,0});
-	vector<vector<uint8_t>> M_GF4({{1,0,1,1},{0,1,0,1},{0,0,1,0},{0,0,0,1}});
 
 	//Generate the SSB model
 	generateSSBModel(name+"_SSB",S,M_GF4,sboxSize,SSBSize,linAsSbox,keyAfterMC);

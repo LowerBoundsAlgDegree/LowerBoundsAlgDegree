@@ -1,5 +1,47 @@
 Patterns for PRESENT with a (not very compact) binary format.
 Note that these pattern were obtain with the code from the "search" folder, as such there are some bit/index reordering (see the README in the "search" folder for details)
 Patterns for the "all high degree monomials" property for 11 rounds will be uploaded once the computation is finished
+Remember that the patterns used for min degree are obtained from a modified last sbox layer (see paper).
+As such, to verifify the results using the implementation in the "search" folder, the creation of the BCData object must have an additional boolean :
+auto BCD = genDataPRESENT(rMax,true);
+
+
+Also, this format has direct compatibility with the functions in "main.cpp" in the "search" folder if one wants to check the results with this code
+
+Example, first pattern in PRESENT_9r_lowerBounds.txt :
+
+For output bit 0 : 
+Input  : 1111111111111111111111111111111111111111110111111111111111111111
+Keys   : 
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+1010000010001010001000100000000010000000000010001000000000001000
+1101000010100000000010000100000010000010100000001101000010100000
+0000000000000000000000001100000000000100100000000000000000000000
+0000000000000000000000100100000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000
+
+Output bit is 0 so the output vector is :
+1000000000000000000000000000000000000000000000000000000000000000
+
+Then to count the trail using the function in the "search" folder, put the following code in the main.cpp
+
+uint rMax = 9;
+auto BCD = genDataPRESENT(rMax);
+vector<uint8_t>  input({1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1});
+vector<uint8_t> output({1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0});
+vector<vector<uint8_t>> keyval({
+						{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+						{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+						{1,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0},
+						{1,1,0,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,1,0,1,0,0,0,0,1,0,1,0,0,0,0,0},
+						{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+						{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+						{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+						{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}});
+computeNumberTrails(BCD,input,output,keyval);
+//Should lead to 17 trails
+
 
 Should be updated to a cleaner hex format

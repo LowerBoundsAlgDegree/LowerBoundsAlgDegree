@@ -43,14 +43,9 @@
 
 class BCData;
 
-BCData genDataMidori64(uint const rMax);
-//Generate the data required for Midori64 over #rMax rounds
 
 BCData genDataSkinny64(uint const rMax);
 //Generate the data required for Skinny64 over #rMax rounds
-
-BCData genDataCRAFT(uint const rMax);
-//Generate the data required for Craft over #rMax rounds
 
 BCData genDataPRESENT(uint const rMax, bool const dedicatedPRESENTlastLayer = false);
 /*
