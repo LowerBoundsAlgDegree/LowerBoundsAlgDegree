@@ -1,0 +1,31 @@
+#!/bin/zsh
+
+TIMELIMIT=30
+KP_FOLDER=../../pattern
+
+make
+
+echo "start degree verify"
+./verifyDegree simon 16 $KP_FOLDER/simon/keypattern_simon32.txt $TIMELIMIT > degree_simon32.txt &
+echo "Simon32 started"
+./verifyDegree simon 24 $KP_FOLDER/simon/keypattern_simon48.txt $TIMELIMIT > degree_simon48.txt &
+echo "Simon48 started"
+./verifyDegree simon 32 $KP_FOLDER/simon/keypattern_simon64.txt $TIMELIMIT > degree_simon64.txt &
+echo "Simon64 started"
+./verifyDegree simon 48 $KP_FOLDER/simon/keypattern_simon96.txt $TIMELIMIT > degree_simon96.txt &
+echo "Simon96 started"
+./verifyDegree simon 64 $KP_FOLDER/simon/keypattern_simon128.txt $TIMELIMIT > degree_simon128.txt &
+echo "Simon128 started"
+
+./verifyDegree simeck 16 $KP_FOLDER/simeck/keypattern_simeck32.txt $TIMELIMIT > degree_simeck32.txt &
+echo "Simeck32 started"
+./verifyDegree simeck 24 $KP_FOLDER/simeck/keypattern_simeck48.txt $TIMELIMIT > degree_simeck48.txt &
+echo "Simeck48 started"
+./verifyDegree simeck 32 $KP_FOLDER/simeck/keypattern_simeck64.txt $TIMELIMIT > degree_simeck64.txt &
+echo "Simeck64 started"
+
+wait
+echo "degree verify finished"
+
+
+./verifyUpperBounds
